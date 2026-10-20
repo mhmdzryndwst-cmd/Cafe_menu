@@ -65,9 +65,14 @@ function esc(s){return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&l
 function status(t){document.getElementById("authStatus").textContent=t}
 async function loadMenu(){
  const {data,error}=await sb.from("cafe_menu").select("*").eq("active",true).order("sort_order").order("id");
- if(error){console.error(error);return}
- if(data && data.length){items=data.map(x=>({id:x.id,name:x.name,cat:x.category,price:Number(x.price),emoji:x.emoji||"☕",desc:x.description||""}))}
+ if(error){
+   console.error("Supabase loadMenu error:",error);
+   if(isAdmin) status("خطا در خواندن منو از دیتابیس: "+error.message);
+   return;
+ }
+ items=(data||[]).map(x=>({id:x.id,name:x.name,cat:x.category,price:Number(x.price),emoji:x.emoji||"☕",desc:x.description||""}));
  render();
+ if(isAdmin) status(items.length ? "منو از دیتابیس بارگذاری شد؛ تعداد آیتم‌ها: "+items.length : "اتصال برقرار است اما دیتابیس آیتم فعالی ندارد. اگر آیتم اضافه کردی، پیام ذخیره‌سازی را بررسی کن.");
 }
 function render(){
  document.getElementById("cafeTitle").textContent=cafeName;
