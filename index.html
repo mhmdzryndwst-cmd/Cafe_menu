@@ -23,15 +23,29 @@ input,select,button{font:inherit}#search{width:100%;border:1px solid var(--line)
 <div class="tools"><input id="search" placeholder="جست‌وجو در منو..." aria-label="جست‌وجو"><div class="cats" id="cats"></div></div>
 <div id="menu"></div>
 <button class="adminbtn" id="adminToggle">مدیریت منو ⚙</button>
-<section id="admin"><h2>مدیریت آزمایشی منو</h2><p class="note">این نسخه نمایشی است: تغییرات فعلاً فقط در همین مرورگر ذخیره می‌شوند و هنوز برای مشتریان دیگر همگام‌سازی نمی‌شوند. برای مدیریت امن و مشترک، باید پایگاه داده و ورود مدیر را در مرحله بعد متصل کنیم.</p>
+<section id="admin"><h2>مدیریت منو</h2>
+<p class="note">برای ویرایش مشترک، ابتدا با حساب مدیر وارد شو. تغییرات این بخش در دیتابیس ذخیره می‌شوند و برای مشتریان به‌روزرسانی خواهند شد.</p>
+<div id="authBox">
+<label>ایمیل مدیر</label><input id="adminEmail" type="email" autocomplete="username" placeholder="ایمیل حساب مدیر">
+<label>رمز عبور</label><input id="adminPassword" type="password" autocomplete="current-password" placeholder="رمز عبور Supabase">
+<button class="action" id="loginBtn">ورود مدیر</button>
+<button class="action secondary" id="logoutBtn" style="display:none">خروج</button>
+<p class="note" id="authStatus">برای مدیریت باید با حسابی که در Supabase ساختی وارد شوی.</p>
+</div>
+<div id="editBox" style="display:none">
 <label>نام کافه</label><input id="titleInput" placeholder="نام کافه">
 <div class="row"><div><label>نام آیتم</label><input id="itemName" placeholder="مثلاً چای زغالی"></div><div><label>قیمت (تومان)</label><input id="itemPrice" type="number" min="0" placeholder="مثلاً 85000"></div></div>
 <div class="row"><div><label>دسته‌بندی</label><select id="itemCat"><option>چای و نوشیدنی گرم</option><option>قلیان</option><option>صبحانه</option><option>غذا</option><option>نوشیدنی سرد</option><option>خوراکی و مخلفات</option></select></div><div><label>نماد</label><select id="itemEmoji"><option>🍵</option><option>🫖</option><option>💨</option><option>🍳</option><option>🍢</option><option>🍹</option><option>🍰</option><option>🥜</option></select></div></div>
-<button class="action" id="addItem">افزودن آیتم</button> <button class="action secondary" id="export">خروجی پشتیبان JSON</button>
-<div id="adminItems"></div><p class="note">قیمت‌های فعلی نمونه‌اند؛ پیش از انتشار عمومی آن‌ها را با قیمت واقعی کافه جایگزین کنید.</p></section>
+<button class="action" id="addItem">افزودن آیتم</button>
+<div id="adminItems"></div>
+</div></section>
 <div class="foot">برای مشاهده منو نیازی به نصب برنامه نیست</div>
 </main>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
+const SUPABASE_URL="https://tslvsutochtkoezdxcpd.supabase.co";
+const SUPABASE_KEY="sb_publishable_J2OT0KQ2ioaFl9_PpkINFw_PgUAbybR";
+const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
 const defaults=[
 {id:1,name:"چای زغالی",cat:"چای و نوشیدنی گرم",price:85000,emoji:"🫖",desc:"چای تازه‌دم با عطر دلنشین"},
 {id:2,name:"چای نبات",cat:"چای و نوشیدنی گرم",price:95000,emoji:"🍵",desc:"چای ایرانی همراه نبات"},
@@ -45,20 +59,59 @@ const defaults=[
 {id:10,name:"آب معدنی",cat:"نوشیدنی سرد",price:35000,emoji:"💧",desc:""},
 {id:11,name:"آجیل و مخلفات",cat:"خوراکی و مخلفات",price:140000,emoji:"🥜",desc:""}
 ];
-let items;try{items=JSON.parse(localStorage.getItem("cafeMenuItems"))||defaults}catch(e){items=defaults}
-let cafeName=localStorage.getItem("cafeMenuTitle")||"کافه سنتی",active="همه";
+let items=defaults, cafeName="کافه سنتی", active="همه", isAdmin=false;
 const money=n=>Number(n||0).toLocaleString("fa-IR")+" تومان";
-function save(){localStorage.setItem("cafeMenuItems",JSON.stringify(items));localStorage.setItem("cafeMenuTitle",cafeName)}
-function render(){document.getElementById("cafeTitle").textContent=cafeName;const cats=["همه",...new Set(items.map(x=>x.cat))];document.getElementById("cats").innerHTML=cats.map(c=>'<button class="cat '+(active===c?'active':'')+'" data-cat="'+esc(c)+'">'+esc(c)+'</button>').join("");document.querySelectorAll("[data-cat]").forEach(b=>b.onclick=()=>{active=b.dataset.cat;render()});
-const q=document.getElementById("search").value.trim().toLowerCase();const shown=items.filter(x=>(active==="همه"||x.cat===active)&&(x.name.toLowerCase().includes(q)||x.cat.toLowerCase().includes(q)||x.desc.toLowerCase().includes(q)));
-let html="";let last="";shown.forEach(x=>{if(x.cat!==last){html+='<h2 class="section-title">'+esc(x.cat)+'</h2>';last=x.cat}html+='<article class="item"><div class="emoji">'+esc(x.emoji)+'</div><div class="info"><div class="name">'+esc(x.name)+'</div>'+(x.desc?'<div class="desc">'+esc(x.desc)+'</div>':'')+'</div><div class="price">'+money(x.price)+'</div></article>'});document.getElementById("menu").innerHTML=html||'<div class="empty">موردی پیدا نشد.</div>';renderAdmin()}
 function esc(s){return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
-function renderAdmin(){document.getElementById("titleInput").value=cafeName;document.getElementById("adminItems").innerHTML=items.map(x=>'<div class="item"><div class="info"><b>'+esc(x.name)+'</b><div class="desc">'+money(x.price)+' · '+esc(x.cat)+'</div></div><button class="action secondary" data-del="'+x.id+'">حذف</button></div>').join("");document.querySelectorAll("[data-del]").forEach(b=>b.onclick=()=>{items=items.filter(x=>x.id!==Number(b.dataset.del));save();render()})}
+function status(t){document.getElementById("authStatus").textContent=t}
+async function loadMenu(){
+ const {data,error}=await sb.from("cafe_menu").select("*").eq("active",true).order("sort_order").order("id");
+ if(error){console.error(error);return}
+ if(data && data.length){items=data.map(x=>({id:x.id,name:x.name,cat:x.category,price:Number(x.price),emoji:x.emoji||"☕",desc:x.description||""}))}
+ render();
+}
+function render(){
+ document.getElementById("cafeTitle").textContent=cafeName;
+ const cats=["همه",...new Set(items.map(x=>x.cat))];
+ document.getElementById("cats").innerHTML=cats.map(c=>'<button class="cat '+(active===c?'active':'')+'" data-cat="'+esc(c)+'">'+esc(c)+'</button>').join("");
+ document.querySelectorAll("[data-cat]").forEach(b=>b.onclick=()=>{active=b.dataset.cat;render()});
+ const q=document.getElementById("search").value.trim().toLowerCase();
+ const shown=items.filter(x=>(active==="همه"||x.cat===active)&&(x.name.toLowerCase().includes(q)||x.cat.toLowerCase().includes(q)||x.desc.toLowerCase().includes(q)));
+ let html="",last="";shown.forEach(x=>{if(x.cat!==last){html+='<h2 class="section-title">'+esc(x.cat)+'</h2>';last=x.cat}html+='<article class="item"><div class="emoji">'+esc(x.emoji)+'</div><div class="info"><div class="name">'+esc(x.name)+'</div>'+(x.desc?'<div class="desc">'+esc(x.desc)+'</div>':'')+'</div><div class="price">'+money(x.price)+'</div></article>'});
+ document.getElementById("menu").innerHTML=html||'<div class="empty">موردی پیدا نشد.</div>';
+ renderAdmin();
+}
+function renderAdmin(){
+ document.getElementById("titleInput").value=cafeName;
+ document.getElementById("adminItems").innerHTML=items.map(x=>'<div class="item"><div class="info"><b>'+esc(x.name)+'</b><div class="desc">'+money(x.price)+' · '+esc(x.cat)+'</div></div><button class="action secondary" data-del="'+x.id+'">حذف</button></div>').join("");
+ document.querySelectorAll("[data-del]").forEach(b=>b.onclick=async()=>{
+   if(!isAdmin)return;
+   const {error}=await sb.from("cafe_menu").update({active:false,updated_at:new Date().toISOString()}).eq("id",Number(b.dataset.del));
+   if(error){status("خطا در حذف: "+error.message);return} await loadMenu();status("آیتم از منوی عمومی پنهان شد.");
+ });
+}
 document.getElementById("search").addEventListener("input",render);
 document.getElementById("adminToggle").onclick=()=>{const a=document.getElementById("admin");a.style.display=a.style.display==="block"?"none":"block"};
-document.getElementById("titleInput").addEventListener("change",e=>{cafeName=e.target.value.trim()||"کافه سنتی";save();render()});
-document.getElementById("addItem").onclick=()=>{const name=document.getElementById("itemName").value.trim(),price=Number(document.getElementById("itemPrice").value);if(!name||!Number.isFinite(price)||price<0){alert("نام آیتم و قیمت معتبر را وارد کن.");return}items.push({id:Date.now(),name,price,cat:document.getElementById("itemCat").value,emoji:document.getElementById("itemEmoji").value,desc:""});save();document.getElementById("itemName").value="";document.getElementById("itemPrice").value="";render()};
-document.getElementById("export").onclick=()=>{const blob=new Blob([JSON.stringify({cafeName,items},null,2)],{type:"application/json"});const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="cafe-menu-backup.json";a.click();URL.revokeObjectURL(a.href)};
-render();
+document.getElementById("loginBtn").onclick=async()=>{
+ const email=document.getElementById("adminEmail").value.trim(),password=document.getElementById("adminPassword").value;
+ if(!email||!password){status("ایمیل و رمز عبور را وارد کن.");return}
+ status("در حال ورود...");
+ const {error}=await sb.auth.signInWithPassword({email,password});
+ if(error){status("ورود ناموفق: "+error.message);return}
+ isAdmin=true;document.getElementById("editBox").style.display="block";document.getElementById("logoutBtn").style.display="inline-block";status("وارد شدی؛ اگر سیاست دسترسی مدیر تنظیم نشده باشد، ذخیره‌سازی ممکن است رد شود.");renderAdmin();
+};
+document.getElementById("logoutBtn").onclick=async()=>{await sb.auth.signOut();isAdmin=false;document.getElementById("editBox").style.display="none";document.getElementById("logoutBtn").style.display="none";status("از حساب مدیر خارج شدی.")};
+document.getElementById("titleInput").addEventListener("change",e=>{cafeName=e.target.value.trim()||"کافه سنتی";document.getElementById("cafeTitle").textContent=cafeName;status("نام کافه در این نسخه تا زمان تنظیم جدول تنظیمات فقط در همین صفحه دیده می‌شود.")});
+document.getElementById("addItem").onclick=async()=>{
+ if(!isAdmin)return;
+ const name=document.getElementById("itemName").value.trim(),price=Number(document.getElementById("itemPrice").value);
+ if(!name||!Number.isFinite(price)||price<0){alert("نام آیتم و قیمت معتبر را وارد کن.");return}
+ const row={name,category:document.getElementById("itemCat").value,price,emoji:document.getElementById("itemEmoji").value,description:"",active:true,sort_order:items.length};
+ const {error}=await sb.from("cafe_menu").insert(row);
+ if(error){status("ذخیره انجام نشد: "+error.message+" — باید سیاست RLS مدیر تنظیم شود.");return}
+ document.getElementById("itemName").value="";document.getElementById("itemPrice").value="";await loadMenu();status("آیتم در دیتابیس ذخیره شد.");
+};
+sb.auth.getSession().then(({data})=>{if(data.session){isAdmin=true;document.getElementById("editBox").style.display="block";document.getElementById("logoutBtn").style.display="inline-block";status("وارد حساب مدیر هستی.")}});
+sb.auth.onAuthStateChange((_event,session)=>{isAdmin=!!session;document.getElementById("editBox").style.display=isAdmin?"block":"none";document.getElementById("logoutBtn").style.display=isAdmin?"inline-block":"none"});
+render();loadMenu();
 </script>
 </body></html>
